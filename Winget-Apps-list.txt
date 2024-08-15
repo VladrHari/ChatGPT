@@ -1,0 +1,5 @@
+Toggl.TogglTrack
+Samsung.DeX
+Rufus.Rufus
+Microsoft.Teams
+7zip.7zip
