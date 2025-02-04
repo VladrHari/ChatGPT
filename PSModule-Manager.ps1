@@ -20,9 +20,7 @@
     The script creates necessary directories for exporting data and ensures 
     that logs are maintained for every executed operation.
 
-.PARAMETER ModuleName
-    (If applicable) Specifies the name of the PowerShell module to be installed, 
-    updated, or removed. This parameter is required for specific module operations.
+.PARAMETER
 
 .OUTPUTS
     - Logs operations in "C:\Temp\ModuleManager.log".
