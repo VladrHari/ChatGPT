@@ -1,17 +1,15 @@
 <#
 .SYNOPSIS
-    Prevents system sleep and simulates realistic user activity to keep Microsoft Teams active.
+    Prevents system sleep and simulates realistic user activity (mouse movement and left click) to keep Microsoft Teams active.
 
 .DESCRIPTION
-    This script uses the Windows API function SetThreadExecutionState (via a custom .NET type)
-    to prevent the computer from sleeping and the display from turning off.
-    In addition, it simulates human-like mouse movement by gradually moving the cursor from its 
-    current position to a random target location. The target is chosen by applying a random offset 
-    (up to a maximum defined by $offsetMax, default 1000 pixels) while ensuring the cursor stays within 
-    the primary screen bounds.
+    This script uses the Windows API function SetThreadExecutionState (via a custom .NET type) to prevent the computer from sleeping and the display from turning off.
+    Additionally, it simulates human-like mouse movement by gradually moving the cursor from its current position to a random target location. 
+    The target is determined by applying a random offset up to a maximum defined by $offsetMax (default 1000 pixels) in both X and Y directions,
+    ensuring the target remains within the primary screen bounds. When the mouse reaches the new position, the script simulates a left mouse click.
     
-    Note: Although the script prevents sleep, Microsoft Teams might still mark you as inactive if no 
-    genuine user input is detected. This simulation mimics real mouse movement over time.
+    Note: Although the script prevents sleep and simulates mouse activity, Teams may still mark you as inactive if genuine user input is not detected.
+    Adjust parameters like $offsetMax, $steps, and $stepDelay to fine-tune the behavior.
     
 .EXAMPLE
     .\KeepTeamsActive.ps1
@@ -19,7 +17,6 @@
     
 .NOTES
     - Ensure that script execution is enabled (e.g., Set-ExecutionPolicy RemoteSigned).
-    - Adjust $offsetMax, $steps, and $stepDelay to fine-tune the human-like movement.
 #>
 
 # Load required .NET assemblies for mouse simulation.
@@ -36,6 +33,17 @@ public class SleepUtil {
 }
 '@
 Add-Type -TypeDefinition $signature
+
+# Define a new type for simulating mouse actions (left click).
+$mouseSignature = @'
+using System;
+using System.Runtime.InteropServices;
+public class MouseActions {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+'@
+Add-Type -TypeDefinition $mouseSignature
 
 # Define constants as unsigned 32-bit integers.
 $ES_CONTINUOUS       = [uint32]2147483648  # 0x80000000: Maintains the state until changed.
@@ -60,7 +68,7 @@ function Simulate-UserActivity {
     # Get the current mouse position.
     $currentPos = [System.Drawing.Point]([System.Windows.Forms.Cursor]::Position)
 
-    # Get screen bounds.
+    # Get primary screen bounds.
     $screenBounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
 
     # Create a random object.
@@ -74,18 +82,18 @@ function Simulate-UserActivity {
     $targetX = $currentPos.X + $deltaX
     $targetY = $currentPos.Y + $deltaY
 
-    # Ensure the target is within screen bounds.
+    # Ensure the target position is within screen bounds.
     $targetX = [Math]::Max($screenBounds.X, [Math]::Min($screenBounds.X + $screenBounds.Width - 1, $targetX))
     $targetY = [Math]::Max($screenBounds.Y, [Math]::Min($screenBounds.Y + $screenBounds.Height - 1, $targetY))
     $targetPos = New-Object System.Drawing.Point($targetX, $targetY)
 
     Write-Host "Moving mouse from ($($currentPos.X), $($currentPos.Y)) to ($($targetPos.X), $($targetPos.Y))"
 
-    # Define steps and delay for smooth, human-like movement.
+    # Define the number of steps and delay per step for smooth, human-like movement.
     $steps = 50
     $stepDelay = 20  # in milliseconds
 
-    # Calculate incremental differences.
+    # Calculate incremental movement.
     $stepX = ($targetPos.X - $currentPos.X) / $steps
     $stepY = ($targetPos.Y - $currentPos.Y) / $steps
 
@@ -98,7 +106,15 @@ function Simulate-UserActivity {
         Start-Sleep -Milliseconds $stepDelay
     }
     
-    Write-Host "Simulated human-like mouse movement to new position."
+    Write-Host "Mouse moved to new position: ($($targetPos.X), $($targetPos.Y)). Simulating left click..."
+    
+    # Simulate a left mouse click.
+    # MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004.
+    [MouseActions]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)  # Left button down.
+    Start-Sleep -Milliseconds 50
+    [MouseActions]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)  # Left button up.
+    
+    Write-Host "Left mouse click simulated at ($($targetPos.X), $($targetPos.Y))."
 }
 
 # Initial call to prevent sleep.
