@@ -1,16 +1,17 @@
 <#
 .SYNOPSIS
-    Prevents system sleep and simulates user activity to keep Microsoft Teams status active.
+    Prevents system sleep and simulates realistic user activity to keep Microsoft Teams active.
 
 .DESCRIPTION
-    This script uses the Windows API function SetThreadExecutionState (via a custom .NET type) 
+    This script uses the Windows API function SetThreadExecutionState (via a custom .NET type)
     to prevent the computer from sleeping and the display from turning off.
-    Additionally, it simulates a minimal mouse movement by moving the cursor a configurable number 
-    of pixels (default 5 pixels) to trigger user activity. This helps ensure that Microsoft Teams 
-    displays an active (green) status.
+    In addition, it simulates human-like mouse movement by gradually moving the cursor from its 
+    current position to a random target location. The target is chosen by applying a random offset 
+    (up to a maximum defined by $offsetMax, default 1000 pixels) while ensuring the cursor stays within 
+    the primary screen bounds.
     
-    Note: Although this script prevents the system from sleeping, Teams may still mark you as inactive 
-    if no genuine user input is detected. Increasing the movement offset might help.
+    Note: Although the script prevents sleep, Microsoft Teams might still mark you as inactive if no 
+    genuine user input is detected. This simulation mimics real mouse movement over time.
     
 .EXAMPLE
     .\KeepTeamsActive.ps1
@@ -18,7 +19,7 @@
     
 .NOTES
     - Ensure that script execution is enabled (e.g., Set-ExecutionPolicy RemoteSigned).
-    - The simulated mouse movement might be slightly noticeable if the offset is set too high.
+    - Adjust $offsetMax, $steps, and $stepDelay to fine-tune the human-like movement.
 #>
 
 # Load required .NET assemblies for mouse simulation.
@@ -53,33 +54,60 @@ function Prevent-Sleep {
 }
 
 function Simulate-UserActivity {
-    # Define the pixel offset for mouse movement.
-    $offset = 5  # Increase this value if needed.
-    
-    # Get the current mouse position as a System.Drawing.Point.
+    # Maximum offset for mouse movement (in pixels).
+    $offsetMax = 1000
+
+    # Get the current mouse position.
     $currentPos = [System.Drawing.Point]([System.Windows.Forms.Cursor]::Position)
+
+    # Get screen bounds.
+    $screenBounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+
+    # Create a random object.
+    $rand = New-Object System.Random
+
+    # Generate random offsets for X and Y within the range [-offsetMax, offsetMax].
+    $deltaX = $rand.Next(-$offsetMax, $offsetMax + 1)
+    $deltaY = $rand.Next(-$offsetMax, $offsetMax + 1)
+
+    # Compute target position.
+    $targetX = $currentPos.X + $deltaX
+    $targetY = $currentPos.Y + $deltaY
+
+    # Ensure the target is within screen bounds.
+    $targetX = [Math]::Max($screenBounds.X, [Math]::Min($screenBounds.X + $screenBounds.Width - 1, $targetX))
+    $targetY = [Math]::Max($screenBounds.Y, [Math]::Min($screenBounds.Y + $screenBounds.Height - 1, $targetY))
+    $targetPos = New-Object System.Drawing.Point($targetX, $targetY)
+
+    Write-Host "Moving mouse from ($($currentPos.X), $($currentPos.Y)) to ($($targetPos.X), $($targetPos.Y))"
+
+    # Define steps and delay for smooth, human-like movement.
+    $steps = 50
+    $stepDelay = 20  # in milliseconds
+
+    # Calculate incremental differences.
+    $stepX = ($targetPos.X - $currentPos.X) / $steps
+    $stepY = ($targetPos.Y - $currentPos.Y) / $steps
+
+    # Gradually move the mouse pointer.
+    for ($i = 1; $i -le $steps; $i++) {
+        $newX = $currentPos.X + [Math]::Round($i * $stepX)
+        $newY = $currentPos.Y + [Math]::Round($i * $stepY)
+        $newPos = New-Object System.Drawing.Point($newX, $newY)
+        [System.Windows.Forms.Cursor]::Position = $newPos
+        Start-Sleep -Milliseconds $stepDelay
+    }
     
-    # Calculate the new position by moving the cursor horizontally by the offset.
-    $newX = [int]$currentPos.X + $offset
-    $newPos = New-Object System.Drawing.Point($newX, $currentPos.Y)
-    
-    # Move the mouse cursor to the new position.
-    [System.Windows.Forms.Cursor]::Position = $newPos
-    # Short delay to simulate the movement.
-    Start-Sleep -Milliseconds 100
-    # Restore the cursor to its original position.
-    [System.Windows.Forms.Cursor]::Position = $currentPos
-    
-    Write-Host "Simulated user activity: moved mouse by $offset pixels."
+    Write-Host "Simulated human-like mouse movement to new position."
 }
 
 # Initial call to prevent sleep.
 Prevent-Sleep
 
-Write-Host "Keeping system awake and simulating user activity to keep Microsoft Teams active."
+Write-Host "Keeping system awake and simulating realistic user activity to keep Microsoft Teams active."
 Write-Host "Press Ctrl+C to stop the script."
 
-# Main loop: every 50 seconds, reapply sleep prevention and simulate a mouse movement.
+# Main loop: every 50 seconds, reapply sleep prevention and simulate user activity.
 while ($true) {
     Start-Sleep -Seconds 50
     Prevent-Sleep
