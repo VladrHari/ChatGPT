@@ -1,12 +1,12 @@
 ﻿<#
 .SYNOPSIS
-    Uninstalls all versions of Google Chrome, Mozilla Firefox, and Safari by forcibly closing running processes,
+    Uninstalls all versions of Google Chrome and Mozilla Firefox by forcibly closing running processes,
     executing unattended uninstall commands, and removing any desktop and Start Menu shortcuts pointing to Chrome or Firefox
     without triggering a system restart. Also removes per-user installations (installed without admin rights) for Chrome and Firefox.
 
 .DESCRIPTION
     This script verifies administrator privileges and scans the Windows registry for uninstall strings from both the system-wide (HKLM)
-    and per-user (HKU) hives for Google Chrome, Mozilla Firefox, and Safari. For Chrome and Firefox, it:
+    and per-user (HKU) hives for Google Chrome or Mozilla Firefox. For Chrome and Firefox, it:
       1. Detects if the browser process is running; if so, waits 10 seconds and then forcefully terminates the process.
       2. Adjusts the uninstall command:
          - For Chrome (non-MSI), it appends "--uninstall", "--force-uninstall", and "--system-level" (if not already present),
@@ -29,7 +29,7 @@
 
 .NOTES
     - Run this script as an Administrator.
-    - The script targets applications with a DisplayName containing "Chrome", "Mozilla Firefox", or "Safari".
+    - The script targets applications with a DisplayName containing "Chrome", "Mozilla Firefox".
     - No system restart will occur.
 #>
 
